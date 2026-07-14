@@ -37,9 +37,9 @@ const loadSkill = async (filePath: string) => skillContent[filePath];
 test("package manifest exposes only the Pi extension and public runtime files", () => {
 	const manifest = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
 	assert.equal(manifest.name, "@davecodes/pi-skill-tags");
-	assert.equal(manifest.version, "0.1.0");
+	assert.equal(manifest.version, "0.1.1");
 	assert.deepEqual(manifest.pi, { extensions: ["./index.ts"] });
-	assert.deepEqual(manifest.files, ["index.ts", "skill-tags.ts", "README.md", "LICENSE", "CHANGELOG.md"]);
+	assert.deepEqual(manifest.files, ["index.ts", "skill-tags.ts", "docs/skill-tags.png", "README.md", "LICENSE", "CHANGELOG.md"]);
 	assert.deepEqual(manifest.peerDependencies, {
 		"@earendil-works/pi-coding-agent": "*",
 		"@earendil-works/pi-tui": "*",

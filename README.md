@@ -2,6 +2,8 @@
 
 Inline Pi skills anywhere in a prompt with searchable `$` autocomplete and compact, theme-aware tags.
 
+![Pi prompt editor showing inline skill tags](docs/skill-tags.png)
+
 ## Features
 
 - Opens skill autocomplete when you type `$`

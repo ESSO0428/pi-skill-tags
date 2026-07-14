@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.1.1] - 2026-07-14
+
+### Added
+
+- Screenshot showing inline skill tags in Pi's prompt editor.
+
 ## [0.1.0] - 2026-07-14
 
 ### Added
