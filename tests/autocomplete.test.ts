@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { wrapEditorFactory } from "../index.ts";
+import { CURSOR_MARKER } from "@earendil-works/pi-tui";
+import { SkillTagsEditorWrapper, wrapEditorFactory } from "../index.ts";
 import { createSkillAutocompleteProvider, type SkillCommand } from "../skill-tags.ts";
 
 const theme = { fg: (_token: string, text: string) => text, bg: (_token: string, text: string) => text } as any;
@@ -53,7 +54,7 @@ function makeEditorStub(text: string, overrides: Record<string, unknown> = {}) {
 		cursorCol: text.length,
 	};
 	return {
-		render: () => [],
+		render: (): string[] => [],
 		handleInput: () => {},
 		getText: () => state.lines.join("\n"),
 		setText: (next: string) => {
@@ -66,6 +67,22 @@ function makeEditorStub(text: string, overrides: Record<string, unknown> = {}) {
 		...overrides,
 	};
 }
+
+test("wrapper forwards focus so cursor markers still render", () => {
+	const inner = makeEditorStub("$[ppt-master]", {
+		focused: false,
+	}) as ReturnType<typeof makeEditorStub> & { focused: boolean; render: () => string[] };
+	inner.render = () => [inner.focused ? `before${CURSOR_MARKER}after` : "beforeafter"];
+	const wrapper = new SkillTagsEditorWrapper(inner as any, theme, keybindings);
+
+	wrapper.focused = true;
+	assert.equal((inner as any).focused, true);
+	assert.ok(wrapper.render(80)[0].includes(CURSOR_MARKER));
+
+	wrapper.focused = false;
+	assert.equal((inner as any).focused, false);
+	assert.ok(!wrapper.render(80)[0].includes(CURSOR_MARKER));
+});
 
 test("skill prefix Tab opens autocomplete instead of forwarding directly to editor", () => {
 	let forwarded = 0;
