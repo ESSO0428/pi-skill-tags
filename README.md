@@ -1,4 +1,4 @@
-# @davecodes/pi-skill-tags
+# @esso0428/pi-skill-tags
 
 Inline Pi skills anywhere in a prompt with searchable `$` autocomplete and compact, theme-aware tags.
 
@@ -37,13 +37,13 @@ The chip is cosmetic. The underlying editor text remains `$[review-code]` or `$[
 From npm:
 
 ```bash
-pi install npm:@davecodes/pi-skill-tags
+pi install npm:@esso0428/pi-skill-tags
 ```
 
 From GitHub:
 
 ```bash
-pi install git:github.com/Davidcreador/pi-skill-tags
+pi install git:github.com/esso0428/pi-skill-tags
 ```
 
 From a local checkout:
@@ -116,7 +116,7 @@ pi -e ./pi-skill-tags
 4. Create a matching tag such as `v0.1.0`.
 5. Push the tag to GitHub. The publish workflow verifies that the tag matches the package version, then publishes with npm provenance and public access.
 
-Configure the GitHub Actions secret `NPM_TOKEN` with an npm granular access token that has **Read and write** permission for `@davecodes/pi-skill-tags` and **Bypass 2FA** enabled. The first scoped publish must permit public access; `publishConfig` and the workflow both enforce it.
+Configure the GitHub Actions secret `NPM_TOKEN` with an npm granular access token that has **Read and write** permission for `@esso0428/pi-skill-tags` and **Bypass 2FA** enabled. The first scoped publish must permit public access; `publishConfig` and the workflow both enforce it.
 
 ## License
 

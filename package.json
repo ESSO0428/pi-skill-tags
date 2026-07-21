@@ -1,17 +1,17 @@
 {
-  "name": "@davecodes/pi-skill-tags",
+  "name": "@esso0428/pi-skill-tags",
   "version": "0.1.1",
   "description": "Inline skill tags with autocomplete for the Pi coding agent",
   "type": "module",
   "license": "MIT",
-  "author": "davecodes",
-  "homepage": "https://github.com/Davidcreador/pi-skill-tags#readme",
+  "author": "esso0428",
+  "homepage": "https://github.com/esso0428/pi-skill-tags#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Davidcreador/pi-skill-tags.git"
+    "url": "git+https://github.com/esso0428/pi-skill-tags.git"
   },
   "bugs": {
-    "url": "https://github.com/Davidcreador/pi-skill-tags/issues"
+    "url": "https://github.com/esso0428/pi-skill-tags/issues"
   },
   "keywords": [
     "pi-package",
