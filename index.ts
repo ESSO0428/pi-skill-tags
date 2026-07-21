@@ -20,52 +20,196 @@ import {
 type RenderHook = (lines: string[], theme: Theme) => string[];
 type EditorFactory = NonNullable<ReturnType<ExtensionContext["ui"]["getEditorComponent"]>>;
 type MarkedEditorFactory = EditorFactory & { [SKILL_TAGS_EDITOR_FACTORY]?: true };
+type WrappedEditor = EditorComponent & {
+	focused?: boolean;
+	wantsKeyRelease?: boolean;
+	borderColor?: ((str: string) => string) | undefined;
+	onSubmit?: ((text: string) => void) | undefined;
+	onChange?: ((text: string) => void) | undefined;
+	addToHistory?: (text: string) => void;
+	insertTextAtCursor?: (text: string) => void;
+	getExpandedText?: () => string;
+	setAutocompleteProvider?: (provider: unknown) => void;
+	setPaddingX?: (padding: number) => void;
+	setAutocompleteMaxVisible?: (maxVisible: number) => void;
+	onEscape?: (() => void) | undefined;
+	onCtrlD?: (() => void) | undefined;
+	onPasteImage?: (() => void) | undefined;
+	onExtensionShortcut?: ((data: string) => boolean) | undefined;
+	actionHandlers?: Map<string, () => void>;
+	onAction?: (action: string, handler: () => void) => void;
+	autocompleteState?: unknown;
+	tryTriggerAutocomplete?: (explicitTab?: boolean) => void;
+	state?: {
+		lines?: string[];
+		cursorLine?: number;
+		cursorCol?: number;
+	};
+};
+
+function getTextBeforeCursor(editor: WrappedEditor): string | undefined {
+	return typeof editor.state?.cursorLine === "number" && typeof editor.state?.cursorCol === "number"
+		? (editor.state.lines?.[editor.state.cursorLine] ?? "").slice(0, editor.state.cursorCol)
+		: undefined;
+}
+
+export class SkillTagsEditorWrapper implements EditorComponent {
+	private readonly inner: WrappedEditor;
+	private readonly theme: Theme;
+	private readonly keybindings: { matches(data: string, action: string): boolean };
+	private fallbackFocused = false;
+	private readonly fallbackActionHandlers = new Map<string, () => void>();
+
+	constructor(inner: WrappedEditor, theme: Theme, keybindings: { matches(data: string, action: string): boolean }) {
+		this.inner = inner;
+		this.theme = theme;
+		this.keybindings = keybindings;
+	}
+
+	get focused(): boolean {
+		return typeof this.inner.focused === "boolean" ? this.inner.focused : this.fallbackFocused;
+	}
+
+	set focused(value: boolean) {
+		this.fallbackFocused = value;
+		if ("focused" in this.inner) {
+			this.inner.focused = value;
+		}
+	}
+
+	get wantsKeyRelease(): boolean {
+		return this.inner.wantsKeyRelease ?? false;
+	}
+
+	get borderColor() {
+		return this.inner.borderColor;
+	}
+
+	set borderColor(value) {
+		this.inner.borderColor = value;
+	}
+
+	get onSubmit() {
+		return this.inner.onSubmit;
+	}
+
+	set onSubmit(value) {
+		this.inner.onSubmit = value;
+	}
+
+	get onChange() {
+		return this.inner.onChange;
+	}
+
+	set onChange(value) {
+		this.inner.onChange = value;
+	}
+
+	get onEscape() {
+		return this.inner.onEscape;
+	}
+
+	set onEscape(value) {
+		this.inner.onEscape = value;
+	}
+
+	get onCtrlD() {
+		return this.inner.onCtrlD;
+	}
+
+	set onCtrlD(value) {
+		this.inner.onCtrlD = value;
+	}
+
+	get onPasteImage() {
+		return this.inner.onPasteImage;
+	}
+
+	set onPasteImage(value) {
+		this.inner.onPasteImage = value;
+	}
+
+	get onExtensionShortcut() {
+		return this.inner.onExtensionShortcut;
+	}
+
+	set onExtensionShortcut(value) {
+		this.inner.onExtensionShortcut = value;
+	}
+
+	get actionHandlers() {
+		return this.inner.actionHandlers ?? this.fallbackActionHandlers;
+	}
+
+	onAction(action: string, handler: () => void): void {
+		if (typeof this.inner.onAction === "function") {
+			this.inner.onAction(action, handler);
+			return;
+		}
+		this.actionHandlers.set(action, handler);
+	}
+
+	render(width: number): string[] {
+		return decorateEditorLines(this.inner.render(width), liveSkillNames, this.theme);
+	}
+
+	handleInput(data: string): void {
+		const beforeCursor = getTextBeforeCursor(this.inner);
+		if (
+			beforeCursor !== undefined &&
+			extractSkillPrefix(beforeCursor) !== undefined &&
+			!this.inner.autocompleteState &&
+			typeof this.inner.tryTriggerAutocomplete === "function" &&
+			this.keybindings.matches(data, "tui.input.tab")
+		) {
+			this.inner.tryTriggerAutocomplete(true);
+			return;
+		}
+		this.inner.handleInput(data);
+	}
+
+	getText(): string {
+		return this.inner.getText();
+	}
+
+	setText(text: string): void {
+		this.inner.setText(text);
+	}
+
+	invalidate(): void {
+		this.inner.invalidate();
+	}
+
+	addToHistory(text: string): void {
+		this.inner.addToHistory?.(text);
+	}
+
+	insertTextAtCursor(text: string): void {
+		this.inner.insertTextAtCursor?.(text);
+	}
+
+	getExpandedText(): string {
+		return this.inner.getExpandedText?.() ?? this.inner.getText();
+	}
+
+	setAutocompleteProvider(provider: unknown): void {
+		this.inner.setAutocompleteProvider?.(provider);
+	}
+
+	setPaddingX(padding: number): void {
+		this.inner.setPaddingX?.(padding);
+	}
+
+	setAutocompleteMaxVisible(maxVisible: number): void {
+		this.inner.setAutocompleteMaxVisible?.(maxVisible);
+	}
+}
 
 export function wrapEditorFactory(factory: EditorFactory | undefined, theme: Theme): EditorFactory {
 	if ((factory as MarkedEditorFactory | undefined)?.[SKILL_TAGS_EDITOR_FACTORY]) return factory!;
 	const wrapped: MarkedEditorFactory = (tui, editorTheme, keybindings) => {
-		const editor: EditorComponent = factory?.(tui, editorTheme, keybindings) ?? new CustomEditor(tui, editorTheme, keybindings);
-		return new Proxy(editor, {
-			get(target, property) {
-				if (property === "render") {
-					return (width: number) => decorateEditorLines(target.render(width), liveSkillNames, theme);
-				}
-				if (property === "handleInput") {
-					return (data: string) => {
-						const wrapped = target as EditorComponent & {
-							autocompleteState?: unknown;
-							tryTriggerAutocomplete?: (explicitTab?: boolean) => void;
-							state?: {
-								lines?: string[];
-								cursorLine?: number;
-								cursorCol?: number;
-							};
-						};
-						const beforeCursor =
-							typeof wrapped.state?.cursorLine === "number" && typeof wrapped.state?.cursorCol === "number"
-								? (wrapped.state.lines?.[wrapped.state.cursorLine] ?? "").slice(0, wrapped.state.cursorCol)
-								: undefined;
-						if (
-							beforeCursor !== undefined &&
-							extractSkillPrefix(beforeCursor) !== undefined &&
-							!wrapped.autocompleteState &&
-							typeof wrapped.tryTriggerAutocomplete === "function" &&
-							keybindings.matches(data, "tui.input.tab")
-						) {
-							wrapped.tryTriggerAutocomplete(true);
-							return;
-						}
-						const value = Reflect.get(target, property, target);
-						return typeof value === "function" ? value.call(target, data) : value;
-					};
-				}
-				const value = Reflect.get(target, property, target);
-				return typeof value === "function" ? value.bind(target) : value;
-			},
-			set(target, property, value) {
-				return Reflect.set(target, property, value, target);
-			},
-		}) as EditorComponent;
+		const editor: WrappedEditor = (factory?.(tui, editorTheme, keybindings) ?? new CustomEditor(tui, editorTheme, keybindings)) as WrappedEditor;
+		return new SkillTagsEditorWrapper(editor, theme, keybindings);
 	};
 	Object.defineProperty(wrapped, SKILL_TAGS_EDITOR_FACTORY, { value: true });
 	return wrapped;
