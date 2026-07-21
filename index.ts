@@ -232,6 +232,15 @@ export default function (pi: ExtensionAPI): void {
 	hooks[EDITOR_RENDER_HOOK] = renderHook;
 
 	let disposeEditorChanged: (() => void) | undefined;
+	let wrapScheduled = false;
+	let wrapInstalled = false;
+	let wrapTimer: ReturnType<typeof setTimeout> | undefined;
+
+	const hasInstalledEditorWrapper = (ctx: ExtensionContext): boolean => {
+		const current = ctx.ui.getEditorComponent() as MarkedEditorFactory | undefined;
+		return current?.[SKILL_TAGS_EDITOR_FACTORY] === true;
+	};
+
 	const bindEditorChanged = () => {
 		if (disposeEditorChanged && hooks[EDITOR_CHANGED_LISTENER] === disposeEditorChanged) return;
 		const priorListener = hooks[EDITOR_CHANGED_LISTENER];
@@ -245,15 +254,50 @@ export default function (pi: ExtensionAPI): void {
 		});
 		hooks[EDITOR_CHANGED_LISTENER] = disposeEditorChanged;
 	};
-	bindEditorChanged();
+
+	const ensureEditorWrapperLater = (ctx: ExtensionContext) => {
+		if (wrapInstalled || wrapScheduled || hasInstalledEditorWrapper(ctx)) {
+			wrapInstalled = wrapInstalled || hasInstalledEditorWrapper(ctx);
+			if (wrapInstalled) bindEditorChanged();
+			return;
+		}
+		wrapScheduled = true;
+		wrapTimer = setTimeout(() => {
+			wrapScheduled = false;
+			if (wrapInstalled || hasInstalledEditorWrapper(ctx)) {
+				wrapInstalled = true;
+				bindEditorChanged();
+				return;
+			}
+			try {
+				installSkillTagsEditor(ctx);
+				wrapInstalled = true;
+				bindEditorChanged();
+			} catch {
+				// Ignore stale-session / UI timing issues; the next skill use can try again.
+			}
+		}, 0);
+	};
 
 	pi.on("session_start", (_event, ctx) => {
 		hooks[EDITOR_RENDER_HOOK] = renderHook;
-		bindEditorChanged();
 		liveSkills = getSkillCommands(pi.getCommands());
 		liveSkillNames = new Set(liveSkills.map((skill) => skill.name));
-		ctx.ui.addAutocompleteProvider((current) => createSkillAutocompleteProvider(current, () => liveSkills));
-		installSkillTagsEditor(ctx);
+		wrapScheduled = false;
+		wrapInstalled = hasInstalledEditorWrapper(ctx);
+		if (wrapInstalled) bindEditorChanged();
+		ctx.ui.addAutocompleteProvider((current) => {
+			const provider = createSkillAutocompleteProvider(current, () => liveSkills);
+			return {
+				...provider,
+				async getSuggestions(lines, cursorLine, cursorCol, options) {
+					const line = lines[cursorLine] ?? "";
+					const beforeCursor = line.slice(0, cursorCol);
+					if (extractSkillPrefix(beforeCursor) !== undefined) ensureEditorWrapperLater(ctx);
+					return provider.getSuggestions(lines, cursorLine, cursorCol, options);
+				},
+			};
+		});
 	});
 
 	pi.on("input", async (event) => {
@@ -265,6 +309,10 @@ export default function (pi: ExtensionAPI): void {
 	});
 
 	pi.on("session_shutdown", () => {
+		if (wrapTimer) clearTimeout(wrapTimer);
+		wrapTimer = undefined;
+		wrapScheduled = false;
+		wrapInstalled = false;
 		if (hooks[EDITOR_RENDER_HOOK] === renderHook) delete hooks[EDITOR_RENDER_HOOK];
 		if (disposeEditorChanged && hooks[EDITOR_CHANGED_LISTENER] === disposeEditorChanged) {
 			disposeEditorChanged();
