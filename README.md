@@ -96,6 +96,7 @@ Skills are trusted instructions. When a tag is submitted, this extension reads t
 
 ```bash
 npm install
+npm run setup-hooks
 npm run check
 npm pack --dry-run
 ```
@@ -106,6 +107,32 @@ To test a checkout in Pi without copying it:
 
 ```bash
 pi -e ./pi-skill-tags
+```
+
+### Intentional main-branch release gate
+
+This repo can enforce an intentional `main` push workflow through `.githooks/pre-push`:
+
+1. publish the version to npm first
+2. wait until npm can resolve that version
+3. push `main`
+
+Enable it locally with:
+
+```bash
+npm run setup-hooks
+```
+
+You can manually verify the same rule without pushing:
+
+```bash
+npm run check:release-gate
+```
+
+If the hook blocks a push, the failure message is intentional and explains the required publish-first workflow. Temporary bypass is still possible with:
+
+```bash
+SKIP_NPM_GATE=1 git push
 ```
 
 ## Release and publishing

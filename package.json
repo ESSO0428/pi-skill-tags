@@ -46,6 +46,8 @@
     "test": "node --experimental-transform-types --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "check": "npm run typecheck && npm test",
+    "check:release-gate": "node scripts/npm-prepush-gate.mjs --check-main",
+    "setup-hooks": "git config core.hooksPath .githooks",
     "prepublishOnly": "npm run check"
   },
   "peerDependencies": {
